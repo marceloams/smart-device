@@ -58,12 +58,12 @@ char password[20]       =       "12345678";
 //DHT11 VARIABLES--------------------------------------------------------------------
 float h = 0;
 float t = 0;
-DHT dht(0, DHTTYPE);
+DHT dht(D3, DHTTYPE);
 //-----------------------------------------------------------------------------------
 //TIMESTAMP VARIABLES----------------------------------------------------------------
-const long utcOffsetInSeconds = -10800;
+String timeStamp;
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+NTPClient timeClient(ntpUDP, "pool.ntp.org", -10800);
 //-----------------------------------------------------------------------------------
 //WIFI FUNCTIONS---------------------------------------------------------------------
 void saveConfigCallback () {
@@ -75,6 +75,7 @@ void saveConfigCallback () {
 void setupPins(){
   pinMode(P0,INPUT);
   pinMode(P2,INPUT);
+  pinMode(D4,INPUT);
 }
 //-----------------------------------------------------------------------------------
 //FIREBASE SETUP FUNCTION------------------------------------------------------------
@@ -83,7 +84,7 @@ void setupFirebase(){
   Serial.println("Firebase ok!");
 }
 //-----------------------------------------------------------------------------------
-//DHT11 SETUP FUNCTION------------------------------------------------------------
+//DHT11 SETUP FUNCTION---------------------------------------------------------------
 void setupDht11(){
   dht.begin();
   Serial.println("DHT11 ok!");
@@ -106,9 +107,55 @@ void readDht11(){
     return;
   }
 
-  Firebase.pushString(firebaseData, deviceId + "/timestamp", timeClient.getFormattedTime());
-  Firebase.pushFloat(firebaseData, deviceId + "/temperature", t);
-  Firebase.pushFloat(firebaseData, deviceId + "/humidity", h);
+  FirebaseJson json;
+  
+  json.set("timestamp",getTimestamp());
+  json.set("humidity",h);
+  json.set("temperature",t);
+
+  if (!Firebase.pushJSON(firebaseData, deviceId + "/measures/mode1", json)) {
+    Serial.println("Firebase: Error to push JSON!");
+  }
+}
+//-----------------------------------------------------------------------------------
+//PRESENCE MEASUREMENT FUNCTION------------------------------------------------------
+void readPresence(){
+
+  int presence = digitalRead(D4); 
+
+  if(presence == HIGH){
+    if (!Firebase.pushString(firebaseData, deviceId + "/measures/mode2", getTimestamp())) {
+      Serial.println("Firebase: Error to push JSON!");
+    } 
+  }
+}
+//-----------------------------------------------------------------------------------
+//TIMESTAMP GETTIME FUNCTION---------------------------------------------------------
+String getTimestamp(){
+  timeClient.update();
+
+  //get epoch time
+  unsigned long epochTime = timeClient.getEpochTime();
+
+  //get formatted time
+  String formattedTime = timeClient.getFormattedTime();
+
+  //Get a time structure
+  struct tm *ptm = gmtime ((time_t *)&epochTime); 
+
+  int monthDay = ptm->tm_mday;
+
+  int currentMonth = ptm->tm_mon+1;
+
+  int currentYear = ptm->tm_year+1900;
+
+  //get current Date
+  String currentDate = String(currentYear) + "-" + String(currentMonth) + "-" + String(monthDay);
+
+  //get current date + formatted time = timestamp
+  timeStamp = currentDate + " " + formattedTime;
+
+  return timeStamp;
 }
 //-----------------------------------------------------------------------------------
 //VOID SETUP-------------------------------------------------------------------------
@@ -267,9 +314,6 @@ void loop(){
     //GET MODE INFO FROM FIREBASE ------------------------------------------------------- 
     Firebase.getInt(firebaseData, deviceId + "/mode");
     deviceMode = firebaseData.intData();
-
-
-    timeClient.update();
     
     //-----------------------------------------------------------------------------------
     // Device Modes: --------------------------------------------------------------------
@@ -280,20 +324,15 @@ void loop(){
       case 0: break;
       case 1: readDht11();
       break;
-      case 2: break;
+      case 2: readPresence();
+      break;
     }
-    
-    //-----------------------------------------------------------------------------------
-    //SEND DHT11 INFO TO FIREBASE ------------------------------------------------------- 
-//    readDht11();
-  
+   
     //-----------------------------------------------------------------------------------
     //GET RESET INFO FROM FIREBASE-------------------------------------------------------
     // Verifica o valor da porta no firebase 
     Firebase.getBool(firebaseData, deviceId + "/reset");
     resetValue = firebaseData.boolData();
-    Serial.print("Reset variable: ");
-    Serial.println(resetValue);
     
     //-----------------------------------------------------------------------------------
     //RESET DEVICE-----------------------------------------------------------------------
