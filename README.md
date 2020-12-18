@@ -82,14 +82,14 @@
  
  - Após isto, espere alguns segundos e já terá carregado no app:
   
- <img src="https://github.com/marceloams/smart-device/blob/master/assets/app1.png">
+ <img src="https://github.com/marceloams/smart-device/blob/master/assets/app2.png">
  
- - Também será possível acessar o histórico de leituras do dispositivo, e ralizar alterações pelo app.
+ - Também será possível manipular o dipositivo além de acessar seu histórico de medidas.
  
  <img src="https://github.com/marceloams/smart-device/blob/master/assets/app4.png">
  
+ ---
  
-
 ✔️ Se seguiu os passo e obteve os mesmos resultados é sinal que funcionou!
 <br>
 <br>
