@@ -47,8 +47,8 @@ String  deviceId;
 int     deviceMode        =     0;
 bool    resetValue        =     false;
 bool    firstConnection   =     true;
-bool    configured;
-bool    ap_mode;
+bool    configured = false;
+bool    ap_mode = false;
 //-----------------------------------------------------------------------------------
 //CUSTOM VARIABLES-------------------------------------------------------------------
 char device_id[20]      =       "Put device id here";
@@ -58,7 +58,7 @@ char password[20]       =       "12345678";
 //DHT11 VARIABLES--------------------------------------------------------------------
 float h = 0;
 float t = 0;
-DHT dht(D3, DHTTYPE);
+DHT dht(0, DHTTYPE);
 //-----------------------------------------------------------------------------------
 //TIMESTAMP VARIABLES----------------------------------------------------------------
 String timeStamp;
@@ -75,7 +75,7 @@ void saveConfigCallback () {
 void setupPins(){
   pinMode(P0,INPUT);
   pinMode(P2,INPUT);
-  pinMode(D4,INPUT);
+  pinMode(0,INPUT);
 }
 //-----------------------------------------------------------------------------------
 //FIREBASE SETUP FUNCTION------------------------------------------------------------
@@ -121,7 +121,7 @@ void readDht11(){
 //PRESENCE MEASUREMENT FUNCTION------------------------------------------------------
 void readPresence(){
 
-  int presence = digitalRead(D4); 
+  int presence = digitalRead(0); 
 
   if(presence == HIGH){
     if (!Firebase.pushString(firebaseData, deviceId + "/measures/mode2", getTimestamp())) {
