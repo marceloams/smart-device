@@ -1,6 +1,6 @@
 /*********
   Author        Marceloams
-  repository    github.com/marceloams/university_projects/38fetin
+  repository    github.com/marceloams/smart-device
 *********/
 //-----------------------------------------------------------------------------------
 //LIBRARIES--------------------------------------------------------------------------
@@ -275,7 +275,7 @@ void setup() {
     Serial.println("Wifi is ready!");
     Serial.print("Device SSID: ");
     Serial.println(ssid);
-    Serial.print("Device Password");
+    Serial.print("Device Password: ");
     Serial.println(password);
   
     Serial.println("");
