@@ -1,5 +1,5 @@
 /*********
-  Author        Marceloams
+  Author        marceloams
   repository    github.com/marceloams/smart-device
 *********/
 //-----------------------------------------------------------------------------------
@@ -20,10 +20,6 @@
 #define FIREBASE_AUTH       "f5gUVzD4r5ZbxHxyRQBbmxHlUYmE3d5EM8FD4LxU"
 FirebaseData firebaseData;
 //-----------------------------------------------------------------------------------
-//INPUT PINS------------------------------------------------------------------------
-#define P0             0
-#define P2             2
-//-----------------------------------------------------------------------------------
 //DHT11 SETTINGS---------------------------------------------------------------------
 #define DHTTYPE DHT11
 //-----------------------------------------------------------------------------------
@@ -33,14 +29,6 @@ bool    shouldSaveConfig  =     false; //flag for saving data
 //-----------------------------------------------------------------------------------
 //SERVER SETTINGS--------------------------------------------------------------------
 WiFiServer server(80);
- 
-String header = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
-String html_1 = "<!DOCTYPE html><html><head><title>Smart Home</title><style> body {align-items: center;text-align: center;}.button {background-color: #008CBA;border-radius: 8px;border: 2px solid #FFF;color: white;padding: 15px 100px;text-align: center;text-decoration: none;display: inline-block;font-size: 20px;}</style></head>";
-String html_2 = "<body><div id='main'><h1>Local Mode</h1><br>";
-String html_3;
-String html_4 = "<br><p>Energy is down, but you can see your sensors information here!</p><br></div></body></html>";
-
-String request = "";
 //-----------------------------------------------------------------------------------
 //VARIABLES--------------------------------------------------------------------------
 String  deviceId;
@@ -52,13 +40,13 @@ bool    ap_mode = false;
 //-----------------------------------------------------------------------------------
 //CUSTOM VARIABLES-------------------------------------------------------------------
 char device_id[20]      =       "Put device id here";
-char ssid[20]           =       "Smart Home";
+char ssid[20]           =       "Smart Device";
 char password[20]       =       "12345678";
 //-----------------------------------------------------------------------------------
 //DHT11 VARIABLES--------------------------------------------------------------------
 float h = 0;
 float t = 0;
-DHT dht(0, DHTTYPE);
+DHT dht(2, DHTTYPE);
 //-----------------------------------------------------------------------------------
 //TIMESTAMP VARIABLES----------------------------------------------------------------
 String timeStamp;
@@ -73,9 +61,8 @@ void saveConfigCallback () {
 //-----------------------------------------------------------------------------------
 //PIN SETUP FUNCTION-----------------------------------------------------------------
 void setupPins(){
-  pinMode(P0,INPUT);
-  pinMode(P2,INPUT);
   pinMode(0,INPUT);
+  pinMode(2,INPUT);
 }
 //-----------------------------------------------------------------------------------
 //FIREBASE SETUP FUNCTION------------------------------------------------------------
@@ -98,7 +85,7 @@ void setupTimestamp(){
 //-----------------------------------------------------------------------------------
 //DHT11 MEASUREMENT FUNCTION---------------------------------------------------------
 void readDht11(){
-  delay(2000);
+  delay(30000);
   h = dht.readHumidity();
   t = dht.readTemperature();
   
@@ -113,19 +100,31 @@ void readDht11(){
   json.set("humidity",h);
   json.set("temperature",t);
 
-  if (!Firebase.pushJSON(firebaseData, deviceId + "/measures/mode1", json)) {
+  if (!Firebase.pushJSON(firebaseData, deviceId + "/measures", json)) {
     Serial.println("Firebase: Error to push JSON!");
   }
 }
 //-----------------------------------------------------------------------------------
 //PRESENCE MEASUREMENT FUNCTION------------------------------------------------------
 void readPresence(){
-
+  delay(500);
   int presence = digitalRead(0); 
 
+  FirebaseJson json;
+
   if(presence == HIGH){
-    if (!Firebase.pushString(firebaseData, deviceId + "/measures/mode2", getTimestamp())) {
+    
+    json.set("timestamp",getTimestamp());
+    json.set("presence",true);
+    
+    if (!Firebase.pushJSON(firebaseData, deviceId + "/measures", json)) {
       Serial.println("Firebase: Error to push JSON!");
+    } 
+  }else {
+    json.set("timestamp",getTimestamp());
+    json.set("presence",false);
+    if (!Firebase.updateNode(firebaseData, deviceId + "/measures/nopresence", json)) {
+      Serial.println("Firebase: Error to update JSON!");
     } 
   }
 }
@@ -275,7 +274,7 @@ void setup() {
     Serial.println("Wifi is ready!");
     Serial.print("Device SSID: ");
     Serial.println(ssid);
-    Serial.print("Device Password: ");
+    Serial.print("Device Password");
     Serial.println(password);
   
     Serial.println("");
@@ -310,24 +309,7 @@ void setup() {
 void loop(){
 
   if(!ap_mode){
-    //-----------------------------------------------------------------------------------
-    //GET MODE INFO FROM FIREBASE ------------------------------------------------------- 
-    Firebase.getInt(firebaseData, deviceId + "/mode");
-    deviceMode = firebaseData.intData();
-    
-    //-----------------------------------------------------------------------------------
-    // Device Modes: --------------------------------------------------------------------
-    // Mode 0: Default ------------------------------------------------------------------
-    // Mode 1: DHT11 Sensor -------------------------------------------------------------
-    // Mode 2: Presence Sensor ----------------------------------------------------------
-    switch(deviceMode){
-      case 0: break;
-      case 1: readDht11();
-      break;
-      case 2: readPresence();
-      break;
-    }
-   
+
     //-----------------------------------------------------------------------------------
     //GET RESET INFO FROM FIREBASE-------------------------------------------------------
     // Verifica o valor da porta no firebase 
@@ -340,6 +322,10 @@ void loop(){
       //-----------------------------------------------------------------------------------
       //PRINT TO SAY THAT IS RESETING------------------------------------------------------
       Serial.println("Reseting device...");
+
+      if(Firebase.deleteNode(firebaseData, deviceId)){
+        Serial.println("Fail to delete device from firebase!");
+      }
       //-----------------------------------------------------------------------------------
       //RESET VARIABLES--------------------------------------------------------------------
       resetValue = false;
@@ -359,7 +345,7 @@ void loop(){
       DynamicJsonBuffer jsonBuffer;
       JsonObject& json = jsonBuffer.createObject();
       json["device_id"] = device_id;
-      json["ssid"] = "Smart Home";
+      json["ssid"] = "Smart Device";
       json["password"] = "12345678";
       json["configured"] = configured;
       File configFile = SPIFFS.open("/config.json", "w");
@@ -376,29 +362,27 @@ void loop(){
       //-----------------------------------------------------------------------------------
       //RESTART NODEMCU--------------------------------------------------------------------
       ESP.restart();
+    }else{
+      //-----------------------------------------------------------------------------------
+      //GET MODE INFO FROM FIREBASE ------------------------------------------------------- 
+      Firebase.getInt(firebaseData, deviceId + "/mode");
+      deviceMode = firebaseData.intData();
+      
+      //-----------------------------------------------------------------------------------
+      // Device Modes: --------------------------------------------------------------------
+      // Mode 0: Default ------------------------------------------------------------------
+      // Mode 1: DHT11 Sensor -------------------------------------------------------------
+      // Mode 2: Presence Sensor ----------------------------------------------------------
+      switch(deviceMode){
+        case 0: readDht11();
+        break;
+        case 1: readPresence();
+        break;
+      }
     }
+   
     //-----------------------------------------------------------------------------------
     //1 SEC DELAY------------------------------------------------------------------------
     delay(1000);
-  } else{
-    // Check if a client has connected
-    WiFiClient client = server.available();
-    if (!client)  {  return;  }
- 
-    // Read the first line of the request
-    request = client.readStringUntil('\r');
- 
-    if (request.indexOf("DOOR") > 0){
-    }
- 
-    client.flush();
- 
-    client.print( header );
-    client.print( html_1 );
-    client.print( html_2 );
-    client.print( html_3 );
-    client.print( html_4);
- 
-    delay(5);
   }
 }
